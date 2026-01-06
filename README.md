@@ -1,2 +1,2 @@
-# doedmessenger.github.io
-95 дон чечня
+# doedmessenger
+95 дон чечня офишал репозиторий епта сука я ща кончу
