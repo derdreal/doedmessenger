@@ -66,6 +66,29 @@
         .post-footer{margin-top:15px;font-style:italic;color:var(--gray);border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;}
         .threat-message{background:linear-gradient(135deg, #000000, #8b0000) !important;border:2px solid #ff0000;}
         .threat-message .message-sender{color:#ff0000;}
+        
+        /* Стили профиля */
+        .profile-section{display:flex;align-items:center;gap:15px;}
+        .profile-avatar{width:45px;height:45px;border-radius:50%;background:linear-gradient(135deg, var(--purple), var(--blue));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;cursor:pointer;transition:all 0.3s;border:2px solid var(--red);}
+        .profile-avatar:hover{transform:scale(1.1);border-color:var(--yellow);}
+        .profile-info{display:flex;flex-direction:column;align-items:flex-end;}
+        .profile-name{font-weight:bold;font-size:16px;color:var(--text);cursor:pointer;transition:all 0.3s;padding:5px 10px;border-radius:5px;}
+        .profile-name:hover{background:rgba(255,255,255,0.1);}
+        .profile-status{font-size:12px;color:var(--gray);}
+        .profile-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:2000;display:none;align-items:center;justify-content:center;}
+        .profile-modal-content{background:var(--light);padding:30px;border-radius:15px;width:90%;max-width:400px;border:3px solid var(--red);}
+        .profile-modal-header{font-size:24px;font-weight:bold;margin-bottom:20px;color:var(--red);text-align:center;}
+        .profile-form{display:flex;flex-direction:column;gap:20px;}
+        .form-group{display:flex;flex-direction:column;gap:8px;}
+        .form-label{font-weight:bold;color:var(--text);}
+        .form-input{padding:12px;border-radius:10px;border:2px solid var(--border);background:var(--dark);color:var(--text);font-size:16px;}
+        .form-input:focus{outline:none;border-color:var(--red);}
+        .profile-buttons{display:flex;gap:15px;margin-top:20px;}
+        .profile-button{padding:12px 24px;border-radius:10px;border:none;font-weight:bold;cursor:pointer;transition:all 0.3s;flex:1;}
+        .profile-button.save{background:var(--red);color:white;}
+        .profile-button.save:hover{background:var(--dark-red);}
+        .profile-button.cancel{background:var(--border);color:var(--text);}
+        .profile-button.cancel:hover{background:var(--gray);color:var(--dark);}
     </style>
 </head>
 <body>
@@ -73,6 +96,27 @@
         <div class="channel-deleted-text">💔 Ты поставил говно на наш пост...</div>
         <div class="channel-deleted-subtext">Нам грустно, мы удаляем наш канал</div>
         <div style="margin-top:20px;font-size:16px;color:#aaa;">Канал будет удалён через: <span id="deleteCountdown">10</span> секунд</div>
+    </div>
+
+    <!-- Модальное окно профиля -->
+    <div class="profile-modal" id="profileModal">
+        <div class="profile-modal-content">
+            <div class="profile-modal-header">👤 Настройки профиля</div>
+            <div class="profile-form">
+                <div class="form-group">
+                    <label class="form-label">Ваш никнейм</label>
+                    <input type="text" class="form-input" id="profileNameInput" placeholder="Введите ваш ник" maxlength="30">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Статус</label>
+                    <input type="text" class="form-input" id="profileStatusInput" placeholder="Ваш статус..." maxlength="50">
+                </div>
+                <div class="profile-buttons">
+                    <button class="profile-button cancel" id="cancelProfile">Отмена</button>
+                    <button class="profile-button save" id="saveProfile">Сохранить</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="header">
@@ -92,6 +136,17 @@
                 </div>
             </div>
             <div class="logo-text">DOED</div>
+        </div>
+        
+        <!-- Секция профиля в правом верхнем углу -->
+        <div class="profile-section">
+            <div class="profile-info">
+                <div class="profile-name" id="profileNameDisplay">Гость</div>
+                <div class="profile-status" id="profileStatusDisplay">в сети</div>
+            </div>
+            <div class="profile-avatar" id="profileAvatar">
+                👤
+            </div>
         </div>
     </div>
     
@@ -539,12 +594,34 @@ GMD news. подписаться`
         let putinDeleted = false;
         let dokserAdded = false; // Флаг, что Доксер уже добавлен
 
+        // Данные профиля (хранятся в localStorage)
+        let userProfile = {
+            name: localStorage.getItem('doed_profile_name') || 'Гость',
+            status: localStorage.getItem('doed_profile_status') || 'в сети',
+            avatar: '👤'
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
+            // Инициализация профиля
+            initProfile();
+            
             initChats();
             
+            // Обработчики кнопок
             document.getElementById('sendButton').addEventListener('click', sendMessage);
             document.getElementById('messageInput').addEventListener('keypress', e => { 
                 if(e.key === 'Enter') sendMessage(); 
+            });
+            
+            // Обработчики профиля
+            document.getElementById('profileAvatar').addEventListener('click', openProfileModal);
+            document.getElementById('profileNameDisplay').addEventListener('click', openProfileModal);
+            document.getElementById('saveProfile').addEventListener('click', saveProfile);
+            document.getElementById('cancelProfile').addEventListener('click', closeProfileModal);
+            
+            // Закрытие модального окна при клике вне его
+            document.getElementById('profileModal').addEventListener('click', function(e) {
+                if(e.target === this) closeProfileModal();
             });
             
             // Инициализация кликов по контактам
@@ -574,6 +651,74 @@ GMD news. подписаться`
                 }
             }, 10000);
         });
+
+        function initProfile() {
+            // Загрузка данных профиля из localStorage
+            const savedName = localStorage.getItem('doed_profile_name');
+            const savedStatus = localStorage.getItem('doed_profile_status');
+            
+            if(savedName) userProfile.name = savedName;
+            if(savedStatus) userProfile.status = savedStatus;
+            
+            // Обновление отображения профиля
+            updateProfileDisplay();
+        }
+
+        function updateProfileDisplay() {
+            document.getElementById('profileNameDisplay').textContent = userProfile.name;
+            document.getElementById('profileStatusDisplay').textContent = userProfile.status;
+            document.getElementById('profileAvatar').textContent = userProfile.avatar;
+        }
+
+        function openProfileModal() {
+            document.getElementById('profileNameInput').value = userProfile.name;
+            document.getElementById('profileStatusInput').value = userProfile.status;
+            document.getElementById('profileModal').style.display = 'flex';
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
+        }
+
+        function saveProfile() {
+            const newName = document.getElementById('profileNameInput').value.trim();
+            const newStatus = document.getElementById('profileStatusInput').value.trim();
+            
+            if(newName.length === 0) {
+                showNotification("Введите имя!");
+                return;
+            }
+            
+            if(newName.length > 30) {
+                showNotification("Имя слишком длинное (макс. 30 символов)!");
+                return;
+            }
+            
+            if(newStatus.length > 50) {
+                showNotification("Статус слишком длинный (макс. 50 символов)!");
+                return;
+            }
+            
+            // Сохраняем данные
+            userProfile.name = newName;
+            userProfile.status = newStatus || 'в сети';
+            
+            // Сохраняем в localStorage
+            localStorage.setItem('doed_profile_name', userProfile.name);
+            localStorage.setItem('doed_profile_status', userProfile.status);
+            
+            // Обновляем отображение
+            updateProfileDisplay();
+            
+            // Закрываем модальное окно
+            closeProfileModal();
+            
+            // Показываем уведомление
+            showNotification("Профиль обновлен! ✅");
+            
+            // Проигрываем звук
+            if(soundEnabled) playSound('https://assets.mixkit.co/active_storage/sfx/268/268-preview.mp3');
+        }
 
         function initChats() {
             // Инициализируем начальные сообщения для каждого чата
